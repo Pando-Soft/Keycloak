@@ -1,0 +1,99 @@
+<?xml version="1.0"  standalone="no"?>
+
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
+
+    <!-- ChangeSet 1: Create ENUM types -->
+    <changeSet id="1" author="Suhaib">
+        <comment>Create ENUM types for userType, userState, and gender</comment>
+        <sql>
+            CREATE TYPE user_type_enum AS ENUM ('ADMIN', 'USER');
+        </sql>
+        <sql>
+            CREATE TYPE user_state_enum AS ENUM ('ACTIVE', 'INACTIVE');
+        </sql>
+        <sql>
+            CREATE TYPE gender_enum AS ENUM ('MALE', 'FEMALE');
+        </sql>
+    </changeSet>
+
+    <!-- ChangeSet 2: Create _user table -->
+    <changeSet id="2" author="Suhaib">
+        <comment>Create _user table</comment>
+        <createTable tableName="_user">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="keycloak_account_id" type="VARCHAR(50)"/>
+            <column name="keycloak_username" type="VARCHAR(50)">
+                <constraints unique="true"/>
+            </column>
+            <column name="email" type="VARCHAR(50)"/>
+            <column name="country_code" type="VARCHAR(5)"/>
+            <column name="phone_number" type="VARCHAR(20)"/>
+            <column name="name" type="VARCHAR(50)"/>
+            <column name="user_type" type="user_type_enum">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_state" type="user_state_enum">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!-- ChangeSet 3: Create admin_user table -->
+    <changeSet id="3" author="Suhaib">
+        <comment>Create admin_user table with foreign key to _user</comment>
+        <createTable tableName="admin_user">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+            constraintName="fk_adminuser_user"
+            baseTableName="admin_user"
+            baseColumnNames="id"
+            referencedTableName="_user"
+            referencedColumnNames="id"/>
+    </changeSet>
+
+    <!-- ChangeSet 4: Create end_user table -->
+    <changeSet id="4" author="Suhaib">
+        <comment>Create end_user table with foreign key to _user</comment>
+        <createTable tableName="end_user">
+            <column name="user_id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="location_list" type="JSONB"/>
+            <column name="selected_location_uuid" type="UUID"/>
+            <column name="rating" type="DOUBLE PRECISION"/>
+            <column name="dob" type="DATE"/>
+            <column name="gender" type="gender_enum"/>
+            <column name="newsletter_Subscription_email" type="VARCHAR(100)"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+            constraintName="fk_enduser_user"
+            baseTableName="end_user"
+            baseColumnNames="user_id"
+            referencedTableName="_user"
+            referencedColumnNames="id"/>
+    </changeSet>
+
+    <!-- ChangeSet 5: Create user_otp table -->
+    <changeSet id="5" author="Suhaib">
+        <comment>Create user_otp table</comment>
+        <createTable tableName="user_otp">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="keycloak_username" type="VARCHAR(50)"/>
+            <column name="otp" type="VARCHAR(6)"/>
+            <column name="expiration_time" type="TIMESTAMP"/>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>
