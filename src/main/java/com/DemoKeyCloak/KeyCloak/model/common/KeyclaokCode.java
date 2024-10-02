@@ -13,9 +13,10 @@ public enum KeyclaokCode {
     OTP_INVALID("otp.invalid"),
     KEYCLAOK_USER_ERROR("keycloak.user.error"),
     CLIENT_NOT_FOUND("client.not.found"),
-    INVALID_PHONE__NUMBER("invalid.phone.number"),
+    INVALID_PHONE_NUMBER("invalid.phone.number"),
     USER_ALREADY_EXISTS("user.already.exists"),
-    UNABLE_TO_REGISTER_USER("unable.to.register.user");
+    UNABLE_TO_REGISTER_USER("unable.to.register.user"),
+    EMAIL_OR_PASSWORD_MISSING("email.or.password.missing");
 
     @Getter
     private final String value;

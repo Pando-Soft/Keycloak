@@ -2,6 +2,7 @@ package com.DemoKeyCloak.KeyCloak.service.user;
 
 import com.DemoKeyCloak.KeyCloak.Repository.EndUserRepository;
 import com.DemoKeyCloak.KeyCloak.model.common.GenerateOtpDTO;
+import com.DemoKeyCloak.KeyCloak.model.common.KeyclaokCode;
 import com.DemoKeyCloak.KeyCloak.model.common.PhoneNumber;
 import com.DemoKeyCloak.KeyCloak.model.common.exception.NotExistException;
 import com.DemoKeyCloak.KeyCloak.model.common.exception.ValidationException;
@@ -32,7 +33,7 @@ public class EndUserService {
 
     public GenerateOtpDTO generateUserLoginOtp(LoginRequest loginRequest) {
         if (loginRequest.phoneNumber() == null) {
-            throw new ValidationException("Invalid Phone Number");
+            throw new ValidationException(KeyclaokCode.INVALID_PHONE_NUMBER.getValue());
         }
         String fullPhoneNumber = loginRequest.phoneNumber().getCode() + loginRequest.phoneNumber().getNumber();
         String keycloakUsername = KeycloakService.buildKeycloakUsername(fullPhoneNumber, UserTypeEnum.USER);
@@ -44,7 +45,7 @@ public class EndUserService {
 
             // Get user again after registration
             user = endUserRepository.findByKeycloakUsernameIgnoreCase(keycloakUsername)
-                .orElseThrow(() -> new NotExistException("User Does Not Exist"));
+                .orElseThrow(() -> new NotExistException(KeyclaokCode.USER_DOSE_NOT_EXIST.getValue()));
         }
         return authService.generateLoginOtp(user, loginRequest.password());
     }
@@ -55,9 +56,9 @@ public class EndUserService {
 
         endUserRepository.findByCountryCodeAndPhoneNumber(phoneNumber.getCode(), phoneNumber.getNumber()).ifPresent(user -> {
             if (user.getUserState() == UserStateEnum.ACTIVE) {
-                throw new AlreadyExistException("User Already Exists");
+                throw new AlreadyExistException(KeyclaokCode.USER_ALREADY_EXISTS.getValue());
             }
-            throw new ValidationException("Unable To Register User" + user.getUserState());
+            throw new ValidationException(KeyclaokCode.UNABLE_TO_REGISTER_USER.getValue() + user.getUserState());
         });
 
         // Create keycloak user
@@ -77,20 +78,20 @@ public class EndUserService {
         log.info("Created end user ('{}').", fullPhoneNumber);
 
         // Assign roles and attributes to keycloak user
-        keycloakService.assignRolesToUser(keycloakAccountId, Set.of(UserAccountRoleEnum.USER));
+//        keycloakService.assignRolesToUser(keycloakAccountId, Set.of(UserAccountRoleEnum.USER));
 //        keycloakService.assignAttributesToUser(keycloakAccountId, new UserAttribute(createdUser.getId()));
         log.info("Assigned roles and attributes to end user Keycloak account ('{}').", fullPhoneNumber);
     }
 
     public AccessTokenResponse verifyUserLoginOtp(OtpLoginVerifyRequest otpLoginVerifyRequest) {
         if (otpLoginVerifyRequest.phoneNumber() == null) {
-            throw new ValidationException("Invalid Phone Number");
+            throw new ValidationException(KeyclaokCode.INVALID_PHONE_NUMBER.getValue());
         }
 
         String fullPhoneNumber = otpLoginVerifyRequest.phoneNumber().getCode() + otpLoginVerifyRequest.phoneNumber().getNumber();
         String keycloakUsername = KeycloakService.buildKeycloakUsername(fullPhoneNumber, UserTypeEnum.USER);
         EndUser user = endUserRepository.findByKeycloakUsernameIgnoreCase(keycloakUsername)
-            .orElseThrow(() -> new NotExistException("User Does Not Exist"));
+            .orElseThrow(() -> new NotExistException(KeyclaokCode.USER_DOSE_NOT_EXIST.getValue()));
         return authService.verifyLoginOtp(otpLoginVerifyRequest, user);
     }
 }

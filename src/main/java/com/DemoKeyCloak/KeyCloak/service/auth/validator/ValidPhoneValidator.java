@@ -2,11 +2,11 @@ package com.DemoKeyCloak.KeyCloak.service.auth.validator;
 
 import com.DemoKeyCloak.KeyCloak.model.common.KeyclaokCode;
 import com.DemoKeyCloak.KeyCloak.model.common.PhoneNumber;
+import com.DemoKeyCloak.KeyCloak.model.common.exception.ValidationException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-import jakarta.ws.rs.BadRequestException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -31,7 +31,7 @@ public class ValidPhoneValidator implements ConstraintValidator<ValidPhone, Phon
             return true;
         } else {
             context.disableDefaultConstraintViolation();
-            throw new BadRequestException(KeyclaokCode.INVALID_PHONE__NUMBER.getValue());
+            throw new ValidationException(KeyclaokCode.INVALID_PHONE_NUMBER.getValue());
         }
     }
 

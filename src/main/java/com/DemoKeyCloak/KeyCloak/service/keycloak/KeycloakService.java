@@ -1,32 +1,28 @@
 package com.DemoKeyCloak.KeyCloak.service.keycloak;
 
 import com.DemoKeyCloak.KeyCloak.client.KeycloakClient;
-import com.DemoKeyCloak.KeyCloak.model.common.KeyclaokAuthorizationAdminRequest;
+import com.DemoKeyCloak.KeyCloak.model.common.KeyclaokCode;
 import com.DemoKeyCloak.KeyCloak.model.common.KeycloakAuthorizationRequest;
-import com.DemoKeyCloak.KeyCloak.model.common.UserAttribute;
 import com.DemoKeyCloak.KeyCloak.model.enums.UserAccountRoleEnum;
 import com.DemoKeyCloak.KeyCloak.model.enums.UserTypeEnum;
 import com.DemoKeyCloak.KeyCloak.model.exception.KeycloakException;
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.ClientResource;
 import org.keycloak.admin.client.resource.UserResource;
-import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.AccessTokenResponse;
 import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.keycloak.representations.idm.authorization.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 import com.DemoKeyCloak.KeyCloak.config.KeyclaokSecurityUtil;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -35,6 +31,7 @@ public class KeycloakService {
 
     private static final String GRANT_TYPE_EXCHANGE_TOKEN = "urn:ietf:params:oauth:grant-type:token-exchange";
     private static final String GRANT_TYPE_PASSWORD = "password";
+    private static final String USER_IMPERSONATED_NAME = "user-impersonated.permission.users";
 
     @Value("${keycloak.realm}")
     private String realm;
@@ -47,34 +44,6 @@ public class KeycloakService {
 
     private final KeycloakClient keycloakClient;
     private final KeyclaokSecurityUtil keycloak;
-
-
-//    public String getKeycloakUserName(String fullPhoneNumber) {
-//        UsersResource usersResource = keyclaok.realm(realm).users();
-//
-//        // Pagination parameters
-//        int first = 0;
-//        int maxResults = 100; // Adjust as needed
-//        List<UserRepresentation> users;
-//
-//        do {
-//            // Fetch a batch of users
-//            users = usersResource.search(null, null, null, null, first, maxResults);
-//            for (UserRepresentation user : users) {
-//                if (user.getAttributes() != null && user.getAttributes().containsKey("phone_number")) {
-//                    List<String> phoneNumbers = user.getAttributes().get("phone_number");
-//                    if (phoneNumbers != null && phoneNumbers.contains(fullPhoneNumber)) {
-//                        return user.getUsername();
-//                    }
-//                }
-//            }
-//            first += maxResults;
-//        } while (!users.isEmpty());
-//
-//        return null; // or throw an exception if user is not found
-//
-//
-//    }
 
     public static String buildKeycloakUsername(final String username, final UserTypeEnum userType) {
         return userType.getValue() + "-" + username;
@@ -101,16 +70,11 @@ public class KeycloakService {
 
 
     public void createUserAccount(String username, String password, UserTypeEnum userType) {
-//        keycloakClient.adminToken(KeyclaokAuthorizationAdminRequest.builder()
-//            .username("admin")
-//            .password("admin_password")
-//            .client_id("admin-cli")
-//            .grant_type(GRANT_TYPE_PASSWORD)
-//            .build());
         final UserRepresentation user = new UserRepresentation();
 
         user.setUsername(buildKeycloakUsername(username, userType));
         user.setEnabled(true);
+        user.setEmailVerified(true);
 
         if (password != null && !password.isEmpty()) {
             final CredentialRepresentation credential = createCredential(password);
@@ -123,9 +87,38 @@ public class KeycloakService {
 
         if (response.getStatus() == HttpStatus.CREATED.value()) {
             log.info("Keycloak user created successfully!");
+            createUserPolicy(user.getUsername());
+            log.info("Create User Policy");
+            assignUserImpersonatedPermission(realm, user.getUsername());
+            log.info("Assign User Policy");
         } else {
             log.warn("Error creating keycloak user!");
-            throw new KeycloakException("Keycloak User Error", response.getStatus());
+            throw new KeycloakException(KeyclaokCode.KEYCLAOK_USER_ERROR.getValue());
+        }
+    }
+
+    public void createAdminUserAccount(String username, String password, String email) {
+        final UserRepresentation user = new UserRepresentation();
+
+        user.setUsername(username);
+        user.setEnabled(true);
+        user.setEmailVerified(true);
+        user.setEmail(email);
+
+        if (password != null && !password.isEmpty()) {
+            final CredentialRepresentation credential = createCredential(password);
+            user.setCredentials(List.of(credential));
+        }
+
+        final Response response = keycloak.getKeycloakInstance().realm(realm)
+            .users()
+            .create(user);
+
+        if (response.getStatus() == HttpStatus.CREATED.value()) {
+            log.info("Keycloak admin created successfully!");
+        } else {
+            log.warn("Error creating keycloak admin!");
+            throw new KeycloakException(KeyclaokCode.KEYCLAOK_USER_ERROR.getValue());
         }
     }
 
@@ -142,6 +135,13 @@ public class KeycloakService {
         return keycloak.getKeycloakInstance().realm(realm)
             .users()
             .search(buildKeycloakUsername(username, userType))
+            .stream().findFirst().get();
+    }
+
+    public UserRepresentation getUserAdminRepresentation(String username) {
+        return keycloak.getKeycloakInstance().realm(realm)
+            .users()
+            .search(username)
             .stream().findFirst().get();
     }
 
@@ -170,8 +170,7 @@ public class KeycloakService {
             // Should not happen, because roles are predefined in keycloak
             // if it happens, it's a configuration error
             .orElseThrow(() -> new KeycloakException(
-                "Keycloak User Error" + userAccountRole,
-                HttpStatus.NOT_FOUND.value())
+                KeyclaokCode.KEYCLAOK_USER_ERROR.getValue() + userAccountRole)
             );
     }
 
@@ -181,26 +180,91 @@ public class KeycloakService {
             .get(keycloakAccountId);
     }
 
-    public void setPolice() {
-
-    }
-
     public ClientResource getClientResourceByClientId(String clientId) {
         ClientRepresentation clientRepresentation = keycloak.getKeycloakInstance().realm(realm).clients().findByClientId(clientId).stream().findFirst().get();
 
         if (clientRepresentation == null) {
             // Should not happen, because client is predefined in keycloak
             // if it happens, it's a configuration error
-            throw new KeycloakException("Client Not Found" + clientId, HttpStatus.NOT_FOUND.value());
+            throw new KeycloakException(KeyclaokCode.CLIENT_NOT_FOUND.getValue() + clientId);
         }
 
         return keycloak.getKeycloakInstance().realm(realm).clients().get(clientRepresentation.getId());
     }
 
-    public void assignAttributesToUser(String keycloakAccountId, UserAttribute userAttribute) {
-        // Get keycloak user
-        UserResource userResource = getUserResource(keycloakAccountId);
+    public void createUserPolicy(String keycloakUsername) {
+        UserRepresentation user = keycloak.getKeycloakInstance().realm(realm)
+            .users()
+            .search(keycloakUsername)
+            .get(0);
 
+        PolicyRepresentation policy = new PolicyRepresentation();
+        policy.setId(keycloakUsername);
+        policy.setName(keycloakUsername);
+        policy.setType("user");
+        policy.setLogic(Logic.POSITIVE);
+        policy.setDecisionStrategy(DecisionStrategy.UNANIMOUS);
+        policy.setDescription("");
 
+        Map<String, String> config = new HashMap<>();
+        String strFormat = "[\"" + user.getId() + "\"]";
+        config.put("users", strFormat); // This is the user you are allowing to be impersonated
+        policy.setConfig(config);
+
+        ClientResource clientResource = getClientResource(realm, "realm-management");
+        clientResource.authorization().policies().create(policy);
     }
+
+    public void assignUserImpersonatedPermission(String realm, String policyName) {
+        // Get the realm-management client
+        ClientResource clientResource = getClientResource(realm, "realm-management");
+
+        // Find the user-impersonated scope
+        ScopeRepresentation userImpersonatedScope = clientResource.authorization().scopes()
+            .findByName("user-impersonated");
+
+        ScopePermissionRepresentation permissionRepresentation = clientResource.authorization().permissions().scope().findByName(USER_IMPERSONATED_NAME);
+        permissionRepresentation.addPolicy(policyName);
+//
+//        if (userImpersonatedScope == null) {
+//            throw new RuntimeException("User-impersonated scope not found");
+//        }
+//
+//        // Find or create a resource permission for the user-impersonated scope
+//        ResourcePermissionRepresentation userImpersonatedPermission = clientResource.authorization().permissions().resource()
+//            .findByName(USER_IMPERSONATED_NAME);
+
+//        if (userImpersonatedPermission == null) {
+//            userImpersonatedPermission = new ResourcePermissionRepresentation();
+//            userImpersonatedPermission.setName("user-impersonated");
+//            userImpersonatedPermission.setType("scope");
+//            userImpersonatedPermission.setScopes(Collections.singletonList(userImpersonatedScope));
+//        }
+
+        // Add the policy to the user-impersonated permission
+//        Set<String> policies = new HashSet<>(new ArrayList<>(userImpersonatedPermission.getPolicies()));
+//        policies.add(policyName); // Add the created policy to the permission
+//        userImpersonatedPermission.setPolicies(policies);
+
+        // Create or update the permission
+//        if (userImpersonatedPermission.getId() == null) {
+//            clientResource.authorization().permissions().resource().create(userImpersonatedPermission);
+//        } else {
+//            clientResource.authorization().permissions().resource().update(userImpersonatedPermission);
+//        }
+    }
+
+    private ClientResource getClientResource(String realm, String clientId) {
+        // Get the Keycloak client representation for the client by clientId
+        ClientRepresentation clientRepresentation = keycloak.getKeycloakInstance().realm(realm)
+            .clients()
+            .findByClientId(clientId)
+            .get(0);  // Get the first matching client (should be unique)
+
+        // Get the ClientResource using the clientId
+        return keycloak.getKeycloakInstance().realm(realm)
+            .clients()
+            .get(clientRepresentation.getId());  // This retrieves the ClientResource object
+    }
+
 }

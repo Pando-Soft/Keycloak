@@ -15,23 +15,23 @@ public class KeycloakClientErrorDecoder implements ErrorDecoder {
         try {
             Response.Body body = response.body();
             if (body == null) {
-                throw new KeycloakException("keycloakError", response.status());
+                throw new KeycloakException("keycloakError");
             }
 
             ObjectMapper objectMapper = new ObjectMapper();
             KeycloakError errorResponse = objectMapper.readValue(body.asInputStream(), KeycloakError.class);
 
             if (errorResponse.getError().equals("invalid_grant")) {
-                throw new KeycloakException("invalidCredentials", response.status());
+                throw new KeycloakException("invalidCredentials");
             }
 
-            throw new KeycloakException(errorResponse.getErrorDescription(), response.status());
+            throw new KeycloakException(errorResponse.getErrorDescription());
         } catch (Exception e) {
             if (e instanceof KeycloakException keycloakException) {
                 throw keycloakException;
             }
             log.error("Error occurred while parsing Keycloak error response body", e);
-            throw new KeycloakException("keycloakError", response.status());
+            throw new KeycloakException("keycloakError");
         }
     }
 }

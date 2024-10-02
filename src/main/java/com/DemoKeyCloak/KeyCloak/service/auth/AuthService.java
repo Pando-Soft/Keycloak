@@ -52,14 +52,13 @@ public class AuthService {
                 var expiresInSeconds = userOtp.getExpirationTime().toEpochSecond() - ZonedDateTime.now().toEpochSecond();
                 var msg = "OTP already sent. Please wait for the OTP to expire before requesting a new one. Expires in " + expiresInSeconds + " seconds.";
                 log.warn(msg);
-                throw new ValidationException("Otp Already Sent" + expiresInSeconds);
+                throw new ValidationException(KeyclaokCode.OTP_ALREADY_SENT.getValue() + expiresInSeconds);
             }
         });
 
         UserOtp userOtp = createUserOtp(keycloakUsername);
 
         if (user.getUserType() == UserTypeEnum.USER) {
-//                sendSmsOtp(user, userOtp);
             log.info("OTP {} sent to user {} via SMS", userOtp.getOtp(), user.getCountryCode().concat(user.getPhoneNumber()));
 
 
@@ -67,10 +66,9 @@ public class AuthService {
             // Use keycloak login to validate credentials only.
             // Token is not returned to user yet as OTP is required to be validated first.
             keyclaokService.login(user.getKeycloakUsername(), password);
-//            sendEmailOtp(user, userOtp);
             log.info("OTP {} sent to user {} via email", userOtp.getOtp(), user.getEmail());
         } else {
-            throw new ValidationException("Otp Login Not Supported" + user.getUserType());
+            throw new ValidationException(KeyclaokCode.OTP_LOGIN_NOT_SUPPORTED.getValue() + user.getUserType());
         }
 
         userOtpRepository.saveAndFlush(userOtp);
@@ -82,22 +80,22 @@ public class AuthService {
 
     public AccessTokenResponse verifyLoginOtp(OtpLoginVerifyRequest otpLoginVerifyRequest, User user) {
         if (user.getUserState() != UserStateEnum.ACTIVE) {
-            throw new NotActiveException("User Inactive" + user.getUserState());
+            throw new NotActiveException(KeyclaokCode.USER_INACTIVE.getValue() + user.getUserState());
         }
 
         String keycloakUsername = user.getKeycloakUsername();
 
         UserOtp userOtp = userOtpRepository.findByKeycloakUsername(keycloakUsername).orElseThrow(
-            () -> new NotExistException("Otp Not Found")
+            () -> new NotExistException(KeyclaokCode.OTP_NOT_FOUND.getValue())
         );
 
         boolean isOtpExpired = ZonedDateTime.now().isAfter(userOtp.getExpirationTime());
         boolean isOtpValid = userOtp.getOtp().equals(otpLoginVerifyRequest.otp());
-        if (isOtpExpired) throw new PermissionException("Otp Expired");
-        if (!isOtpValid) throw new PermissionException("Otp Invalid");
+        if (isOtpExpired) throw new PermissionException(KeyclaokCode.OTP_EXPIRED.getValue());
+        if (!isOtpValid) throw new PermissionException(KeyclaokCode.OTP_INVALID.getValue());
 
         userRepository.findByKeycloakUsernameIgnoreCase(keycloakUsername)
-            .orElseThrow(() -> new NotExistException("User Does Not Exist"));
+            .orElseThrow(() -> new NotExistException(KeyclaokCode.USER_DOSE_NOT_EXIST.getValue()));
 
         // Remove OTP after successful validation
 //        userOtpRepository.delete(userOtp);

@@ -1,14 +1,13 @@
 package com.DemoKeyCloak.KeyCloak.model.exception;
 
-public class KeycloakException extends RuntimeException{
-    private final int status;
+import com.DemoKeyCloak.KeyCloak.model.common.exception.KeyclaokRuntimeException;
+import lombok.Getter;
 
-    public KeycloakException(String message, int status) {
+@Getter
+public class KeycloakException extends KeyclaokRuntimeException {
+
+    public KeycloakException(String message) {
         super(message);
-        this.status = status;
     }
 
-    public int getStatus() {
-        return this.status;
-    }
 }
