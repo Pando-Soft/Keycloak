@@ -89,8 +89,9 @@ public class KeycloakService {
             log.info("Keycloak user created successfully!");
             createUserPolicy(user.getUsername());
             log.info("Create User Policy");
-            assignUserImpersonatedPermission(realm, user.getUsername());
-            log.info("Assign User Policy");
+            // TODO we need to check assign user impersonated because it is not work well
+//            assignUserImpersonatedPermission(realm, user.getUsername());
+//            log.info("Assign User Policy");
         } else {
             log.warn("Error creating keycloak user!");
             throw new KeycloakException(KeyclaokCode.KEYCLAOK_USER_ERROR.getValue());

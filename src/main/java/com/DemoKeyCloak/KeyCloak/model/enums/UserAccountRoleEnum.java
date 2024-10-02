@@ -3,10 +3,7 @@ package com.DemoKeyCloak.KeyCloak.model.enums;
 
 public enum UserAccountRoleEnum {
 
-    SUPER_ADMIN("SUPER_ADMIN"),
-    SP_ADMIN("SP_ADMIN"),
-    SP_WORKER("SP_WORKER"),
-    SP_MANAGER("SP_MANAGER"),
+    ADMIN("ADMIN"),
     USER("USER");
 
     private final String value;

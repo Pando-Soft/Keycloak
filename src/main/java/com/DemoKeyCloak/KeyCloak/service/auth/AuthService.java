@@ -98,7 +98,7 @@ public class AuthService {
             .orElseThrow(() -> new NotExistException(KeyclaokCode.USER_DOSE_NOT_EXIST.getValue()));
 
         // Remove OTP after successful validation
-//        userOtpRepository.delete(userOtp);
+        userOtpRepository.delete(userOtp);
 
         return keyclaokService.tokenExchange(keycloakUsername);
     }

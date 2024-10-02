@@ -78,8 +78,7 @@ public class EndUserService {
         log.info("Created end user ('{}').", fullPhoneNumber);
 
         // Assign roles and attributes to keycloak user
-//        keycloakService.assignRolesToUser(keycloakAccountId, Set.of(UserAccountRoleEnum.USER));
-//        keycloakService.assignAttributesToUser(keycloakAccountId, new UserAttribute(createdUser.getId()));
+        keycloakService.assignRolesToUser(keycloakAccountId, Set.of(UserAccountRoleEnum.USER));
         log.info("Assigned roles and attributes to end user Keycloak account ('{}').", fullPhoneNumber);
     }
 

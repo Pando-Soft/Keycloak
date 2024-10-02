@@ -7,10 +7,14 @@ import com.DemoKeyCloak.KeyCloak.model.common.exception.NotExistException;
 import com.DemoKeyCloak.KeyCloak.model.common.exception.ValidationException;
 import com.DemoKeyCloak.KeyCloak.model.entity.AdminUser;
 import com.DemoKeyCloak.KeyCloak.model.entity.EndUser;
+import com.DemoKeyCloak.KeyCloak.model.entity.User;
+import com.DemoKeyCloak.KeyCloak.model.entity.UserOtp;
+import com.DemoKeyCloak.KeyCloak.model.enums.UserAccountRoleEnum;
 import com.DemoKeyCloak.KeyCloak.model.enums.UserStateEnum;
 import com.DemoKeyCloak.KeyCloak.model.enums.UserTypeEnum;
 import com.DemoKeyCloak.KeyCloak.model.request.LoginRequest;
 import com.DemoKeyCloak.KeyCloak.model.request.OtpLoginVerifyRequest;
+import com.DemoKeyCloak.KeyCloak.service.auth.exception.NotActiveException;
 import com.DemoKeyCloak.KeyCloak.service.keycloak.KeycloakService;
 import com.DemoKeyCloak.KeyCloak.service.auth.AuthService;
 import com.DemoKeyCloak.KeyCloak.service.user.exception.AlreadyExistException;
@@ -18,6 +22,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.representations.AccessTokenResponse;
 import org.springframework.stereotype.Service;
+
+import java.time.ZonedDateTime;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -29,8 +36,8 @@ public class AdminUserService {
     private final KeycloakService keycloakService;
 
 
-    public GenerateOtpDTO generateAdminLoginOtp(LoginRequest loginRequest) {
-        String keycloakUsername = KeycloakService.buildKeycloakUsername(loginRequest.email(), UserTypeEnum.ADMIN);
+    public AccessTokenResponse generateAdminLogin(LoginRequest loginRequest) {
+        String keycloakUsername = loginRequest.email().substring(0, loginRequest.email().indexOf('@'));
         AdminUser user = adminUserRepository.findByKeycloakUsernameIgnoreCase(keycloakUsername).orElse(null);
         if (user == null) {
             createAdminUser(loginRequest);
@@ -39,15 +46,16 @@ public class AdminUserService {
             user = adminUserRepository.findByKeycloakUsernameIgnoreCase(keycloakUsername)
                 .orElseThrow(() -> new NotExistException(KeyclaokCode.USER_DOSE_NOT_EXIST.getValue()));
         }
-        return authService.generateLoginOtp(user, loginRequest.password());
+        return keycloakService.login(keycloakUsername, loginRequest.password());
+
     }
 
-    public AccessTokenResponse verifyAdminLoginOtp(OtpLoginVerifyRequest otpLoginVerifyRequest) {
-        String keycloakUsername = KeycloakService.buildKeycloakUsername(otpLoginVerifyRequest.email(), UserTypeEnum.ADMIN);
-        AdminUser user = adminUserRepository.findByKeycloakUsernameIgnoreCase(keycloakUsername).
-            orElseThrow(() -> new NotExistException(KeyclaokCode.USER_DOSE_NOT_EXIST.getValue()));
-        return authService.verifyLoginOtp(otpLoginVerifyRequest, user);
-    }
+//    public AccessTokenResponse verifyAdminLoginOtp(OtpLoginVerifyRequest otpLoginVerifyRequest) {
+//        String keycloakUsername = KeycloakService.buildKeycloakUsername(otpLoginVerifyRequest.email(), UserTypeEnum.ADMIN);
+//        AdminUser user = adminUserRepository.findByKeycloakUsernameIgnoreCase(keycloakUsername).
+//            orElseThrow(() -> new NotExistException(KeyclaokCode.USER_DOSE_NOT_EXIST.getValue()));
+//        return authService.verifyLoginOtp(otpLoginVerifyRequest, user);
+//    }
 
     public void createAdminUser(LoginRequest loginRequest) {
         String keycloakUsername = loginRequest.email().substring(0, loginRequest.email().indexOf('@'));
@@ -76,7 +84,7 @@ public class AdminUserService {
         log.info("Created admin user ('{}').", keycloakUsername);
 
         // Assign roles to keycloak user
-//        keycloakService.assignRolesToUser(keycloakAccountId, Set.of(UserAccountRoleEnum.USER));
+        keycloakService.assignRolesToUser(keycloakAccountId, Set.of(UserAccountRoleEnum.ADMIN));
         log.info("Assigned roles and attributes to end user Keycloak account ('{}').", keycloakUsername);
     }
 }
